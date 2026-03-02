@@ -27,3 +27,6 @@ uv.lock
 # OS
 .DS_Store
 Thumbs.db
+
+#lista dos apps
+docs
