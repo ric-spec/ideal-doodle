@@ -1,14 +1,28 @@
+import asyncio
 import sentry_sdk
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.routing import APIRoute
 from starlette.middleware.cors import CORSMiddleware
 
 from app.api.main import api_router
 from app.core.config import settings
+from app.cron import build_scheduler
+from app.workers.scraper_worker import run_all_scrapers
 
 
 def custom_generate_unique_id(route: APIRoute) -> str:
     return f"{route.tags[0]}-{route.name}"
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    scheduler = build_scheduler()
+    if settings.SCRAPER_RUN_ON_STARTUP:
+        asyncio.create_task(run_all_scrapers())
+    scheduler.start()
+    yield
+    scheduler.shutdown(wait=False)
 
 
 if settings.SENTRY_DSN and settings.ENVIRONMENT != "local":
@@ -18,6 +32,7 @@ app = FastAPI(
     title=settings.PROJECT_NAME,
     openapi_url=f"{settings.API_V1_STR}/openapi.json",
     generate_unique_id_function=custom_generate_unique_id,
+    lifespan=lifespan,
 )
 
 if settings.all_cors_origins:

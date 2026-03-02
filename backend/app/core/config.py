@@ -92,6 +92,9 @@ class Settings(BaseSettings):
     FIRST_SUPERUSER: EmailStr
     FIRST_SUPERUSER_PASSWORD: str
 
+    SCRAPER_INTERVAL_HOURS: int = 1
+    SCRAPER_RUN_ON_STARTUP: bool = False
+
     def _check_default_secret(self, var_name: str, value: str | None) -> None:
         if value == "changethis":
             message = (
