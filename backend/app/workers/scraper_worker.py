@@ -1,6 +1,19 @@
 import asyncio
 import logging
+from typing import Any
 
+from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlmodel.ext.asyncio.session import AsyncSession
+
+from app.core.db import engine
+from app.models import (
+    FeedItem as DBFeedItem,
+    Outro as DBOutro,
+    Pedido as DBPedido,
+    Pet as DBPet,
+    PontoAjuda as DBPontoAjuda,
+    Voluntario as DBVoluntario,
+)
 from app.scrapers import (
     AjudaEmjfScraper,
     AjudaImediataScraper,
@@ -24,6 +37,7 @@ from app.scrapers import (
     UnidosPorJfScraper,
     ZonaDaMataAlertasScraper,
 )
+from app.scrapers.normalizer import normalize_all
 
 logger = logging.getLogger(__name__)
 
@@ -68,9 +82,54 @@ async def _run_one(cls) -> ScraperResult:
         )
 
 
+async def _upsert(session: AsyncSession, db_cls: Any, rows: list[dict[str, Any]]) -> None:
+    if not rows:
+        return
+    stmt = pg_insert(db_cls).values(rows)
+    update_cols = {
+        c.name: stmt.excluded[c.name]
+        for c in db_cls.__table__.columns
+        if c.name != "id"
+    }
+    await session.execute(stmt.on_conflict_do_update(index_elements=["id"], set_=update_cols))
+
+
+async def _persist(session: AsyncSession, results: list[ScraperResult]) -> dict[str, int]:
+    normalized = normalize_all(results)
+
+    mapping = [
+        (DBPedido,     normalized.pedidos,     "pedidos"),
+        (DBVoluntario, normalized.voluntarios,  "voluntarios"),
+        (DBPontoAjuda, normalized.pontos,       "pontos"),
+        (DBPet,        normalized.pets,         "pets"),
+        (DBFeedItem,   normalized.feed,         "feed"),
+        (DBOutro,      normalized.outros,       "outros"),
+    ]
+
+    counts: dict[str, int] = {}
+    for db_cls, items, name in mapping:
+        rows = [item.model_dump() for item in items]
+        await _upsert(session, db_cls, rows)
+        counts[name] = len(rows)
+
+    await session.commit()
+    return counts
+
+
 async def run_all_scrapers() -> list[ScraperResult]:
     logger.info("Scraper worker started (%d portais)", len(SCRAPERS))
     results = await asyncio.gather(*[_run_one(cls) for cls in SCRAPERS])
     ok = sum(1 for r in results if not r.errors)
     logger.info("Scraper worker done: %d/%d OK", ok, len(results))
+
+    async with AsyncSession(engine) as session:
+        counts = await _persist(session, list(results))
+
+    total = sum(counts.values())
+    logger.info(
+        "Persisted %d items — %s",
+        total,
+        " | ".join(f"{k}={v}" for k, v in counts.items()),
+    )
+
     return list(results)
