@@ -42,12 +42,18 @@ class SosMinasGrowberryScraper(BaseScraper):
                 return first_page
 
             # demais páginas em paralelo
-            rest = await asyncio.gather(*[
-                self._fetch_voluntarios_page(client, p)
-                for p in range(2, n_pages + 1)
-            ])
+            rest = await asyncio.gather(
+                *[
+                    self._fetch_voluntarios_page(client, p)
+                    for p in range(2, n_pages + 1)
+                ]
+            )
 
-        return first_page + [item for page in rest for item in page]
+        all_items = first_page + [item for page in rest for item in page]
+        seen: dict = {}
+        for item in all_items:
+            seen[item["id"]] = item
+        return list(seen.values())
 
     async def scrape(self) -> ScraperResult:
         result = ScraperResult(
@@ -73,7 +79,7 @@ class SosMinasGrowberryScraper(BaseScraper):
         result.data = {
             "pedidos": pedidos,
             "voluntarios": [v for v in all_voluntarios if v.get("tipo") != "doacao"],
-            "doacoes":     [v for v in all_voluntarios if v.get("tipo") == "doacao"],
+            "doacoes": [v for v in all_voluntarios if v.get("tipo") == "doacao"],
         }
 
         return result
