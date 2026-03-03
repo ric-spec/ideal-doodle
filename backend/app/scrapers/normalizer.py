@@ -521,3 +521,721 @@ def _minas_emergencia(r: ScraperResult) -> NormalizedResult:
 
 
 _NORMALIZERS["minas_emergencia"] = _minas_emergencia
+
+
+# ---------------------------------------------------------------------------
+
+def _ajude_juiz_de_fora(r: ScraperResult) -> NormalizedResult:
+    nr = NormalizedResult()
+    pid, pname, purl, sa = r.portal_id, r.portal_name, r.url, r.scraped_at
+    base = dict(portal_id=pid, portal_name=pname, portal_url=purl, scraped_at=sa)
+
+    for i, item in enumerate(r.data.get("collection_points", [])):
+        raw_id = item.get("id") or str(i)
+        lat, lng = _geo(item)
+        itens_raw = item.get("items") or item.get("itens") or []
+        nr.pontos.append(PontoAjuda(
+            id=f"{pid}:jf:{raw_id}",
+            **base,
+            tipo="coleta",
+            nome=_first(item, "name", "nome"),
+            endereco=_first(item, "address", "endereco"),
+            cidade=_first(item, "city", "cidade") or "Juiz de Fora",
+            bairro=_first(item, "neighborhood", "bairro"),
+            contato=_first(item, "phone", "telefone", "contato"),
+            horario=_first(item, "hours", "horario"),
+            itens=itens_raw if isinstance(itens_raw, list) else [str(itens_raw)],
+            lat=lat,
+            lng=lng,
+            raw=item,
+        ))
+
+    for i, item in enumerate(r.data.get("needs", [])):
+        raw_id = item.get("id") or str(i)
+        nr.pedidos.append(Pedido(
+            id=f"{pid}:jf:{raw_id}",
+            **base,
+            titulo=_first(item, "category", "custom_label"),
+            descricao=_first(item, "custom_label", "category"),
+            categoria=item.get("category"),
+            status="ativo" if item.get("is_active") else "inativo",
+            cidade="Juiz de Fora",
+            raw=item,
+        ))
+
+    for i, item in enumerate(r.data.get("reports", [])):
+        raw_id = item.get("id") or str(i)
+        lat, lng = _geo(item)
+        nr.feed.append(FeedItem(
+            id=f"{pid}:jf:report:{raw_id}",
+            **base,
+            tipo="relatorio",
+            titulo=_first(item, "type", "address"),
+            descricao=_first(item, "description", "reference"),
+            data=str(item.get("created_at") or ""),
+            raw=item,
+        ))
+
+    return nr
+
+
+_NORMALIZERS["10-ajude-juiz-de-fora"] = _ajude_juiz_de_fora
+
+
+# ---------------------------------------------------------------------------
+
+def _sos_ser_luz_jf(r: ScraperResult) -> NormalizedResult:
+    nr = NormalizedResult()
+    pid, pname, purl, sa = r.portal_id, r.portal_name, r.url, r.scraped_at
+    base = dict(portal_id=pid, portal_name=pname, portal_url=purl, scraped_at=sa)
+
+    form_info = r.data.get("form_fields", {})
+    if form_info.get("available"):
+        nr.outros.append(Outro(
+            id=f"{pid}:jf:form_structure",
+            **base,
+            tipo="formulario",
+            titulo="Formulário de Pedido de Ajuda",
+            descricao=r.data.get("note", ""),
+            url=f"{purl}/help_requests/new",
+            raw=form_info,
+        ))
+
+    return nr
+
+
+_NORMALIZERS["11-sos-ser-luz-jf"] = _sos_ser_luz_jf
+
+
+# ---------------------------------------------------------------------------
+
+def _ajuda_imediata(r: ScraperResult) -> NormalizedResult:
+    nr = NormalizedResult()
+    pid, pname, purl, sa = r.portal_id, r.portal_name, r.url, r.scraped_at
+    base = dict(portal_id=pid, portal_name=pname, portal_url=purl, scraped_at=sa)
+
+    for item in r.data.get("items", []):
+        raw_id = item.get("id") or ""
+        tipo_pub = item.get("tipo_publicacao", "")
+        u = item.get("usuario") or {}
+        nome = u.get("nome") or _first(item, "nome", "name")
+        contato = u.get("telefone") or _first(item, "telefone", "whatsapp")
+        bairro = u.get("bairro") or item.get("bairro")
+
+        if tipo_pub == "PEDIDO":
+            nr.pedidos.append(Pedido(
+                id=f"{pid}:jf:{raw_id}",
+                **base,
+                titulo=item.get("categoria"),
+                descricao=item.get("descricao"),
+                categoria=item.get("categoria"),
+                status=item.get("status"),
+                nome=nome,
+                contato=contato,
+                cidade="Juiz de Fora",
+                bairro=bairro,
+                raw=item,
+            ))
+        elif tipo_pub == "OFERTA":
+            nr.voluntarios.append(Voluntario(
+                id=f"{pid}:jf:{raw_id}",
+                **base,
+                nome=nome,
+                descricao=item.get("descricao"),
+                categoria=item.get("categoria"),
+                contato=contato,
+                cidade="Juiz de Fora",
+                bairro=bairro,
+                raw=item,
+            ))
+
+    return nr
+
+
+_NORMALIZERS["12-ajuda-imediata"] = _ajuda_imediata
+
+
+# ---------------------------------------------------------------------------
+
+def _ajuda_jf_arctei(r: ScraperResult) -> NormalizedResult:
+    nr = NormalizedResult()
+    pid, pname, purl, sa = r.portal_id, r.portal_name, r.url, r.scraped_at
+    base = dict(portal_id=pid, portal_name=pname, portal_url=purl, scraped_at=sa)
+
+    for i, item in enumerate(r.data.get("requests", [])):
+        raw_id = item.get("id") or str(i)
+        lat, lng = _geo(item)
+        needs = item.get("needs") or []
+        nr.pedidos.append(Pedido(
+            id=f"{pid}:jf:{raw_id}",
+            **base,
+            titulo=item.get("details") or ", ".join(needs) if needs else None,
+            descricao=item.get("details"),
+            categoria=", ".join(needs) if isinstance(needs, list) else str(needs),
+            status=item.get("status"),
+            nome=item.get("name"),
+            contato=str(item["phone"]) if item.get("phone") else None,
+            cidade="Juiz de Fora",
+            bairro=item.get("neighborhood"),
+            lat=lat,
+            lng=lng,
+            raw=item,
+        ))
+
+    for i, item in enumerate(r.data.get("points", [])):
+        raw_id = item.get("id") or str(i)
+        lat, lng = _geo(item)
+        itens_raw = item.get("items") or []
+        nr.pontos.append(PontoAjuda(
+            id=f"{pid}:jf:{raw_id}",
+            **base,
+            tipo="coleta",
+            nome=item.get("name"),
+            endereco=item.get("address"),
+            cidade="Juiz de Fora",
+            bairro=item.get("neighborhood"),
+            contato=str(item.get("contact") or item.get("phone") or "") or None,
+            horario=item.get("hours"),
+            itens=itens_raw if isinstance(itens_raw, list) else [str(itens_raw)],
+            lat=lat,
+            lng=lng,
+            raw=item,
+        ))
+
+    for i, item in enumerate(r.data.get("volunteers", [])):
+        raw_id = item.get("id") or str(i)
+        lat, lng = _geo(item)
+        skills = item.get("skills") or []
+        nr.voluntarios.append(Voluntario(
+            id=f"{pid}:jf:{raw_id}",
+            **base,
+            nome=item.get("name"),
+            descricao=item.get("notes"),
+            categoria=", ".join(skills) if isinstance(skills, list) else str(skills),
+            contato=str(item["phone"]) if item.get("phone") else None,
+            cidade="Juiz de Fora",
+            bairro=item.get("neighborhood"),
+            lat=lat,
+            lng=lng,
+            raw=item,
+        ))
+
+    for i, item in enumerate(r.data.get("vistorias", [])):
+        raw_id = item.get("id") or str(i)
+        nr.feed.append(FeedItem(
+            id=f"{pid}:jf:vistoria:{raw_id}",
+            **base,
+            tipo="vistoria",
+            titulo=item.get("address") or item.get("neighborhood"),
+            descricao=item.get("description"),
+            data=str(item.get("created_at") or ""),
+            urgente=str(item.get("urgency") or "").lower() == "alta",
+            raw=item,
+        ))
+
+    return nr
+
+
+_NORMALIZERS["13-ajuda-jf-arctei"] = _ajuda_jf_arctei
+
+
+# ---------------------------------------------------------------------------
+
+def _onde_doar(r: ScraperResult) -> NormalizedResult:
+    nr = NormalizedResult()
+    pid, pname, purl, sa = r.portal_id, r.portal_name, r.url, r.scraped_at
+    base = dict(portal_id=pid, portal_name=pname, portal_url=purl, scraped_at=sa)
+
+    for i, item in enumerate(r.data.get("donation_points", [])):
+        raw_id = item.get("id") or str(i)
+        lat, lng = _geo(item)
+        # Extrair categorias do array de objetos aninhados
+        cats = item.get("categorias") or []
+        itens = [c["categoria"]["nome"] for c in cats if isinstance(c, dict) and isinstance(c.get("categoria"), dict)]
+        endereco = item.get("endereco") or ""
+        numero = item.get("numero")
+        if numero:
+            endereco = f"{endereco}, {numero}"
+        nr.pontos.append(PontoAjuda(
+            id=f"{pid}:jf:{raw_id}",
+            **base,
+            tipo="doacao",
+            nome=item.get("nome"),
+            descricao=item.get("detalhes"),
+            endereco=endereco or None,
+            cidade=item.get("cidade") or "Juiz de Fora",
+            contato=item.get("telefone") or item.get("whatsapp"),
+            itens=itens,
+            lat=lat,
+            lng=lng,
+            raw=item,
+        ))
+
+    for i, item in enumerate(r.data.get("help_requests", [])):
+        raw_id = _first(item, "id", "ID") or str(i)
+        lat, lng = _geo(item)
+        nr.pedidos.append(Pedido(
+            id=f"{pid}:jf:pedido:{raw_id}",
+            **base,
+            titulo=_first(item, "titulo", "title"),
+            descricao=_first(item, "descricao", "description"),
+            categoria=_first(item, "categoria", "tipo"),
+            status=item.get("status"),
+            nome=_first(item, "nome", "name"),
+            contato=_first(item, "telefone", "phone", "contato"),
+            cidade=_first(item, "cidade", "city") or "Juiz de Fora",
+            bairro=_first(item, "bairro", "neighborhood"),
+            lat=lat,
+            lng=lng,
+            raw=item,
+        ))
+
+    return nr
+
+
+_NORMALIZERS["15-onde-doar"] = _onde_doar
+
+
+# ---------------------------------------------------------------------------
+
+def _interdicoes_jf(r: ScraperResult) -> NormalizedResult:
+    nr = NormalizedResult()
+    pid, pname, purl, sa = r.portal_id, r.portal_name, r.url, r.scraped_at
+    base = dict(portal_id=pid, portal_name=pname, portal_url=purl, scraped_at=sa)
+
+    for i, item in enumerate(r.data.get("interdicoes", [])):
+        raw_id = str(i)
+        status = item.get("Status", "")
+        endereco = item.get("Endereco") or ""
+        zona = item.get("Zona") or ""
+        titulo = f"{endereco} ({zona})" if zona else endereco
+        nr.feed.append(FeedItem(
+            id=f"{pid}:jf:interdicao:{raw_id}",
+            **base,
+            tipo="interdicao",
+            titulo=titulo or None,
+            descricao=item.get("Descricao"),
+            data=item.get("Data_Registro") or "",
+            urgente=status == "INTERDITADA",
+            raw=item,
+        ))
+
+    return nr
+
+
+_NORMALIZERS["16-interdicoes-jf"] = _interdicoes_jf
+
+
+# ---------------------------------------------------------------------------
+
+def _ajuda_emjf(r: ScraperResult) -> NormalizedResult:
+    nr = NormalizedResult()
+    pid, pname, purl, sa = r.portal_id, r.portal_name, r.url, r.scraped_at
+    base = dict(portal_id=pid, portal_name=pname, portal_url=purl, scraped_at=sa)
+
+    for i, item in enumerate(r.data.get("collection_points", [])):
+        raw_id = item.get("id") or str(i)
+        lat, lng = _geo(item)
+        itens_raw = item.get("items") or item.get("itens") or []
+        nr.pontos.append(PontoAjuda(
+            id=f"{pid}:jf:coleta:{raw_id}",
+            **base,
+            tipo="coleta",
+            nome=_first(item, "name", "nome"),
+            endereco=_first(item, "address", "endereco"),
+            cidade=_first(item, "city", "cidade") or "Juiz de Fora",
+            bairro=_first(item, "neighborhood", "bairro"),
+            contato=_first(item, "phone", "telefone", "contato"),
+            horario=_first(item, "hours", "horario"),
+            itens=itens_raw if isinstance(itens_raw, list) else [str(itens_raw)],
+            lat=lat,
+            lng=lng,
+            raw=item,
+        ))
+
+    for i, item in enumerate(r.data.get("shelters", [])):
+        raw_id = item.get("id") or str(i)
+        lat, lng = _geo(item)
+        nr.pontos.append(PontoAjuda(
+            id=f"{pid}:jf:abrigo:{raw_id}",
+            **base,
+            tipo="abrigo",
+            nome=_first(item, "name", "nome"),
+            endereco=_first(item, "address", "endereco"),
+            cidade=_first(item, "city", "cidade") or "Juiz de Fora",
+            bairro=_first(item, "neighborhood", "bairro"),
+            contato=_first(item, "phone", "telefone", "contato"),
+            lat=lat,
+            lng=lng,
+            raw=item,
+        ))
+
+    for i, item in enumerate(r.data.get("pix_keys", [])):
+        raw_id = item.get("id") or str(i)
+        nr.outros.append(Outro(
+            id=f"{pid}:jf:pix:{raw_id}",
+            **base,
+            tipo="pix",
+            titulo=_first(item, "name", "nome"),
+            descricao=_first(item, "description", "descricao"),
+            contato=_first(item, "pixKey", "pix_key", "chave_pix"),
+            raw=item,
+        ))
+
+    return nr
+
+
+_NORMALIZERS["17-ajuda-emjf"] = _ajuda_emjf
+
+
+# ---------------------------------------------------------------------------
+
+def _mi_au_ajuda(r: ScraperResult) -> NormalizedResult:
+    nr = NormalizedResult()
+    pid, pname, purl, sa = r.portal_id, r.portal_name, r.url, r.scraped_at
+    base = dict(portal_id=pid, portal_name=pname, portal_url=purl, scraped_at=sa)
+
+    for i, item in enumerate(r.data.get("acolhedores", [])):
+        raw_id = item.get("id") or str(i)
+        lat, lng = _geo(item)
+        nr.voluntarios.append(Voluntario(
+            id=f"{pid}:jf:{raw_id}",
+            **base,
+            nome=item.get("nome"),
+            descricao=item.get("observacoes"),
+            categoria="acolhedor_animal",
+            contato=item.get("whatsapp") or item.get("email"),
+            cidade="Juiz de Fora",
+            bairro=item.get("bairro"),
+            lat=lat,
+            lng=lng,
+            raw=item,
+        ))
+
+    for item in r.data.get("pets", []):
+        raw_id = item.get("id") or ""
+        city = _city_slug(item, "cidade", "city", fallback="jf")
+        nr.pets.append(Pet(
+            id=f"{pid}:{city}:{raw_id}",
+            **base,
+            tipo=_first(item, "tipo", "type") or "perdido",
+            nome=_first(item, "nome", "name", "nome_pet"),
+            especie=_first(item, "especie", "animal_type", "tipo_animal"),
+            porte=_first(item, "porte", "size"),
+            descricao=_first(item, "descricao", "description"),
+            status=item.get("status"),
+            contato=_first(item, "telefone", "phone", "contato"),
+            cidade=_first(item, "cidade", "city"),
+            bairro=_first(item, "bairro", "neighborhood"),
+            imagem_url=_first(item, "imagem_url", "image_url", "foto"),
+            raw=item,
+        ))
+
+    return nr
+
+
+_NORMALIZERS["18-mi-au-ajuda"] = _mi_au_ajuda
+
+
+# ---------------------------------------------------------------------------
+
+def _zona_da_mata_alertas(r: ScraperResult) -> NormalizedResult:
+    nr = NormalizedResult()
+    pid, pname, purl, sa = r.portal_id, r.portal_name, r.url, r.scraped_at
+    base = dict(portal_id=pid, portal_name=pname, portal_url=purl, scraped_at=sa)
+
+    for i, item in enumerate(r.data.get("alerts", [])):
+        raw_id = item.get("id") or str(i)
+        alert_type = item.get("type") or ""
+        nr.feed.append(FeedItem(
+            id=f"{pid}:zona_da_mata:{raw_id}",
+            **base,
+            tipo="alerta",
+            titulo=alert_type or "alerta",
+            descricao=_first(item, "description", "descricao", "message"),
+            data=str(item.get("created_at") or ""),
+            raw=item,
+        ))
+
+    return nr
+
+
+_NORMALIZERS["19-zona-da-mata-alertas"] = _zona_da_mata_alertas
+
+
+# ---------------------------------------------------------------------------
+
+def _unidos_por_jf(r: ScraperResult) -> NormalizedResult:
+    nr = NormalizedResult()
+    pid, pname, purl, sa = r.portal_id, r.portal_name, r.url, r.scraped_at
+    base = dict(portal_id=pid, portal_name=pname, portal_url=purl, scraped_at=sa)
+
+    for i, item in enumerate(r.data.get("pedidos", [])):
+        raw_id = item.get("id") or str(i)
+        lat, lng = _geo(item)
+        nr.pedidos.append(Pedido(
+            id=f"{pid}:jf:{raw_id}",
+            **base,
+            titulo=item.get("need_type") or item.get("description"),
+            descricao=item.get("description"),
+            categoria=item.get("need_type"),
+            status=item.get("status"),
+            nome=item.get("name"),
+            contato=item.get("phone"),
+            cidade="Juiz de Fora",
+            bairro=item.get("neighborhood"),
+            lat=lat,
+            lng=lng,
+            raw=item,
+        ))
+
+    for i, item in enumerate(r.data.get("voluntarios", [])):
+        raw_id = item.get("id") or str(i)
+        lat, lng = _geo(item)
+        nr.voluntarios.append(Voluntario(
+            id=f"{pid}:jf:{raw_id}",
+            **base,
+            nome=item.get("name"),
+            descricao=item.get("description"),
+            categoria=item.get("need_type"),
+            contato=item.get("phone"),
+            cidade="Juiz de Fora",
+            bairro=item.get("neighborhood"),
+            lat=lat,
+            lng=lng,
+            raw=item,
+        ))
+
+    return nr
+
+
+_NORMALIZERS["20-unidos-por-jf"] = _unidos_por_jf
+
+
+# ---------------------------------------------------------------------------
+
+def _ajude_jf(r: ScraperResult) -> NormalizedResult:
+    nr = NormalizedResult()
+    pid, pname, purl, sa = r.portal_id, r.portal_name, r.url, r.scraped_at
+    base = dict(portal_id=pid, portal_name=pname, portal_url=purl, scraped_at=sa)
+
+    # Pets perdidos
+    for item in r.data.get("pets_perdidos_public", []):
+        raw_id = item.get("id") or ""
+        nr.pets.append(Pet(
+            id=f"{pid}:jf:perdido:{raw_id}",
+            **base,
+            tipo="perdido",
+            nome=item.get("nome_pet"),
+            especie=item.get("especie"),
+            descricao=_first(item, "descricao", "cor"),
+            status=item.get("status"),
+            bairro=item.get("local_visto"),
+            imagem_url=item.get("foto_url"),
+            raw=item,
+        ))
+
+    # Adoção
+    for item in r.data.get("adocao", []):
+        raw_id = item.get("id") or ""
+        nr.pets.append(Pet(
+            id=f"{pid}:jf:adocao:{raw_id}",
+            **base,
+            tipo="adocao",
+            nome=item.get("nome_pet") or item.get("nome"),
+            especie=item.get("especie"),
+            descricao=item.get("descricao"),
+            status=item.get("status"),
+            imagem_url=item.get("foto_url"),
+            raw=item,
+        ))
+
+    # Voluntários
+    for item in r.data.get("voluntarios_public", []):
+        raw_id = item.get("id") or ""
+        habilidades = item.get("habilidades") or []
+        nr.voluntarios.append(Voluntario(
+            id=f"{pid}:jf:{raw_id}",
+            **base,
+            descricao=item.get("disponibilidade"),
+            categoria=", ".join(habilidades) if isinstance(habilidades, list) and habilidades else item.get("disponibilidade"),
+            cidade="Juiz de Fora",
+            raw=item,
+        ))
+
+    # Lares temporários → voluntário (categoria: lar_temporario)
+    for item in r.data.get("lares_temporarios_public", []):
+        raw_id = item.get("id") or ""
+        city = _city_slug(item, "cidade", "city", fallback="jf")
+        lat, lng = _geo(item)
+        nr.voluntarios.append(Voluntario(
+            id=f"{pid}:{city}:lar:{raw_id}",
+            **base,
+            nome=_first(item, "nome", "name"),
+            descricao=_first(item, "descricao", "description", "observacao"),
+            categoria="lar_temporario",
+            contato=_first(item, "telefone", "phone", "contato", "whatsapp"),
+            cidade=_first(item, "cidade", "city"),
+            bairro=_first(item, "bairro", "neighborhood"),
+            lat=lat,
+            lng=lng,
+            raw=item,
+        ))
+
+    # Doadores → voluntário (categoria: doador)
+    for item in r.data.get("doadores_public", []):
+        raw_id = item.get("id") or ""
+        city = _city_slug(item, "cidade", "city", fallback="jf")
+        nr.voluntarios.append(Voluntario(
+            id=f"{pid}:{city}:doador:{raw_id}",
+            **base,
+            nome=_first(item, "nome", "name"),
+            descricao=_first(item, "descricao", "description"),
+            categoria="doador",
+            contato=_first(item, "telefone", "phone", "contato"),
+            cidade=_first(item, "cidade", "city"),
+            bairro=_first(item, "bairro", "neighborhood"),
+            raw=item,
+        ))
+
+    # ONGs / protetores → ponto (tipo: entidade)
+    for item in r.data.get("ongs_protetores", []):
+        raw_id = item.get("id") or ""
+        lat, lng = _geo(item)
+        nr.pontos.append(PontoAjuda(
+            id=f"{pid}:jf:ong:{raw_id}",
+            **base,
+            tipo="entidade",
+            nome=_first(item, "nome", "name"),
+            descricao=_first(item, "descricao", "description"),
+            endereco=_first(item, "endereco", "address"),
+            cidade=_first(item, "cidade", "city") or "Juiz de Fora",
+            bairro=_first(item, "bairro", "neighborhood"),
+            contato=_first(item, "telefone", "phone", "contato"),
+            lat=lat,
+            lng=lng,
+            raw=item,
+        ))
+
+    # Pontos de doação
+    for item in r.data.get("pontos_doacao", []):
+        raw_id = item.get("id") or ""
+        lat, lng = _geo(item)
+        itens_raw = item.get("itens") or item.get("items") or []
+        nr.pontos.append(PontoAjuda(
+            id=f"{pid}:jf:doacao:{raw_id}",
+            **base,
+            tipo="doacao",
+            nome=_first(item, "nome", "name"),
+            endereco=_first(item, "endereco", "address"),
+            cidade=_first(item, "cidade", "city") or "Juiz de Fora",
+            bairro=_first(item, "bairro", "neighborhood"),
+            contato=_first(item, "telefone", "phone", "contato"),
+            horario=_first(item, "horario", "hours"),
+            itens=itens_raw if isinstance(itens_raw, list) else [str(itens_raw)],
+            lat=lat,
+            lng=lng,
+            raw=item,
+        ))
+
+    # Pontos de alimentação
+    for item in r.data.get("pontos_alimentacao", []):
+        raw_id = item.get("id") or ""
+        lat, lng = _geo(item)
+        nr.pontos.append(PontoAjuda(
+            id=f"{pid}:jf:alimentacao:{raw_id}",
+            **base,
+            tipo="alimentacao",
+            nome=_first(item, "nome", "name"),
+            endereco=_first(item, "endereco", "address"),
+            cidade=_first(item, "cidade", "city") or "Juiz de Fora",
+            bairro=_first(item, "bairro", "neighborhood"),
+            contato=_first(item, "telefone", "phone", "contato"),
+            horario=_first(item, "horario", "hours"),
+            lat=lat,
+            lng=lng,
+            raw=item,
+        ))
+
+    # Abrigos
+    for item in r.data.get("abrigos", []):
+        raw_id = item.get("id") or ""
+        lat, lng = _geo(item)
+        nr.pontos.append(PontoAjuda(
+            id=f"{pid}:jf:abrigo:{raw_id}",
+            **base,
+            tipo="abrigo",
+            nome=_first(item, "nome", "name"),
+            endereco=_first(item, "endereco", "address"),
+            cidade=_first(item, "cidade", "city") or "Juiz de Fora",
+            bairro=_first(item, "bairro", "neighborhood"),
+            contato=_first(item, "telefone", "phone", "contato"),
+            lat=lat,
+            lng=lng,
+            raw=item,
+        ))
+
+    # Vaquinhas → outro
+    for item in r.data.get("vaquinhas", []):
+        raw_id = item.get("id") or ""
+        nr.outros.append(Outro(
+            id=f"{pid}:jf:vaquinha:{raw_id}",
+            **base,
+            tipo="vaquinha",
+            titulo=_first(item, "titulo", "title", "nome"),
+            descricao=_first(item, "descricao", "description"),
+            url=_first(item, "url", "link"),
+            raw=item,
+        ))
+
+    return nr
+
+
+_NORMALIZERS["21-ajude-jf"] = _ajude_jf
+
+
+# ---------------------------------------------------------------------------
+
+def _conta_publica(r: ScraperResult) -> NormalizedResult:
+    nr = NormalizedResult()
+    pid, pname, purl, sa = r.portal_id, r.portal_name, r.url, r.scraped_at
+    base = dict(portal_id=pid, portal_name=pname, portal_url=purl, scraped_at=sa)
+
+    saldo = r.data.get("saldo")
+    if saldo and isinstance(saldo, dict):
+        nr.outros.append(Outro(
+            id=f"{pid}:jf:saldo",
+            **base,
+            tipo="saldo",
+            titulo="Saldo Conta Pública",
+            descricao=str(saldo.get("saldo") or saldo.get("valor") or ""),
+            raw=saldo,
+        ))
+
+    for i, item in enumerate(r.data.get("extrato", [])):
+        raw_id = item.get("id") or str(i)
+        nr.feed.append(FeedItem(
+            id=f"{pid}:jf:extrato:{raw_id}",
+            **base,
+            tipo="transacao",
+            titulo=_first(item, "descricao", "description", "tipo"),
+            descricao=_first(item, "detalhe", "detalhes", "observacao"),
+            data=str(_first(item, "data", "date", "created_at") or ""),
+            raw=item,
+        ))
+
+    registro = r.data.get("registro")
+    if registro and isinstance(registro, dict):
+        nr.outros.append(Outro(
+            id=f"{pid}:jf:registro",
+            **base,
+            tipo="registro",
+            titulo="Registro Conta Pública",
+            descricao=str(_first(registro, "descricao", "description") or ""),
+            raw=registro,
+        ))
+
+    return nr
+
+
+_NORMALIZERS["22-conta-publica"] = _conta_publica
