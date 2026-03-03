@@ -214,6 +214,10 @@ class PedidoCreate(SQLModel):
     lng: float | None = None
 
 
+class PedidoUpdate(PedidoCreate):
+    pass
+
+
 class VoluntarioCreate(SQLModel):
     nome: str | None = None
     descricao: str | None = None
@@ -223,6 +227,10 @@ class VoluntarioCreate(SQLModel):
     bairro: str | None = None
     lat: float | None = None
     lng: float | None = None
+
+
+class VoluntarioUpdate(VoluntarioCreate):
+    pass
 
 
 class PontoAjudaCreate(SQLModel):
@@ -239,6 +247,10 @@ class PontoAjudaCreate(SQLModel):
     itens: list[str] = Field(default_factory=list)
 
 
+class PontoAjudaUpdate(PontoAjudaCreate):
+    pass
+
+
 class PetCreate(SQLModel):
     tipo: str  # perdido | encontrado | adocao
     nome: str | None = None
@@ -251,6 +263,10 @@ class PetCreate(SQLModel):
     imagem_url: str | None = None
 
 
+class PetUpdate(PetCreate):
+    tipo: str | None = None  # type: ignore[assignment]
+
+
 class FeedItemCreate(SQLModel):
     tipo: str  # alerta | noticia | relatorio
     titulo: str | None = None
@@ -260,12 +276,21 @@ class FeedItemCreate(SQLModel):
     urgente: bool = False
 
 
+class FeedItemUpdate(FeedItemCreate):
+    tipo: str | None = None  # type: ignore[assignment]
+    urgente: bool | None = None  # type: ignore[assignment]
+
+
 class OutroCreate(SQLModel):
     tipo: str  # contato_emergencia | link | pix | saldo | registro | formulario | vaquinha
     titulo: str | None = None
     descricao: str | None = None
     url: str | None = None
     contato: str | None = None
+
+
+class OutroUpdate(OutroCreate):
+    tipo: str | None = None  # type: ignore[assignment]
 
 
 # ---------------------------------------------------------------------------

@@ -2,17 +2,17 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, HTTPException, Query
 from sqlmodel import col, func, select
 
 from app.api.deps import ApiKeyDep, SessionDep
 from app.models import (
-    FeedItem, FeedItemCreate,
-    Outro, OutroCreate,
-    Pedido, PedidoCreate,
-    Pet, PetCreate,
-    PontoAjuda, PontoAjudaCreate,
-    Voluntario, VoluntarioCreate,
+    FeedItem, FeedItemCreate, FeedItemUpdate,
+    Outro, OutroCreate, OutroUpdate,
+    Pedido, PedidoCreate, PedidoUpdate,
+    Pet, PetCreate, PetUpdate,
+    PontoAjuda, PontoAjudaCreate, PontoAjudaUpdate,
+    Voluntario, VoluntarioCreate, VoluntarioUpdate,
 )
 
 router = APIRouter(tags=["data"])
@@ -84,6 +84,18 @@ async def create_pedido(session: SessionDep, api_key: ApiKeyDep, data: PedidoCre
     return item
 
 
+@router.put("/pedidos/{item_id}")
+async def update_pedido(session: SessionDep, api_key: ApiKeyDep, item_id: str, data: PedidoUpdate) -> Any:
+    item = await session.get(Pedido, item_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="Pedido não encontrado")
+    item.sqlmodel_update(data.model_dump(exclude_unset=True))
+    session.add(item)
+    await session.commit()
+    await session.refresh(item)
+    return item
+
+
 # ---------------------------------------------------------------------------
 # Voluntários
 # ---------------------------------------------------------------------------
@@ -127,6 +139,18 @@ async def create_voluntario(session: SessionDep, api_key: ApiKeyDep, data: Volun
     return item
 
 
+@router.put("/voluntarios/{item_id}")
+async def update_voluntario(session: SessionDep, api_key: ApiKeyDep, item_id: str, data: VoluntarioUpdate) -> Any:
+    item = await session.get(Voluntario, item_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="Voluntário não encontrado")
+    item.sqlmodel_update(data.model_dump(exclude_unset=True))
+    session.add(item)
+    await session.commit()
+    await session.refresh(item)
+    return item
+
+
 # ---------------------------------------------------------------------------
 # Pontos de Ajuda
 # ---------------------------------------------------------------------------
@@ -164,6 +188,18 @@ async def create_ponto(session: SessionDep, api_key: ApiKeyDep, data: PontoAjuda
         scraped_at=_now(),
         **data.model_dump(),
     )
+    session.add(item)
+    await session.commit()
+    await session.refresh(item)
+    return item
+
+
+@router.put("/pontos/{item_id}")
+async def update_ponto(session: SessionDep, api_key: ApiKeyDep, item_id: str, data: PontoAjudaUpdate) -> Any:
+    item = await session.get(PontoAjuda, item_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="Ponto de ajuda não encontrado")
+    item.sqlmodel_update(data.model_dump(exclude_unset=True))
     session.add(item)
     await session.commit()
     await session.refresh(item)
@@ -216,6 +252,18 @@ async def create_pet(session: SessionDep, api_key: ApiKeyDep, data: PetCreate) -
     return item
 
 
+@router.put("/pets/{item_id}")
+async def update_pet(session: SessionDep, api_key: ApiKeyDep, item_id: str, data: PetUpdate) -> Any:
+    item = await session.get(Pet, item_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="Pet não encontrado")
+    item.sqlmodel_update(data.model_dump(exclude_unset=True))
+    session.add(item)
+    await session.commit()
+    await session.refresh(item)
+    return item
+
+
 # ---------------------------------------------------------------------------
 # Feed
 # ---------------------------------------------------------------------------
@@ -259,6 +307,18 @@ async def create_feed_item(session: SessionDep, api_key: ApiKeyDep, data: FeedIt
     return item
 
 
+@router.put("/feed/{item_id}")
+async def update_feed_item(session: SessionDep, api_key: ApiKeyDep, item_id: str, data: FeedItemUpdate) -> Any:
+    item = await session.get(FeedItem, item_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="Item de feed não encontrado")
+    item.sqlmodel_update(data.model_dump(exclude_unset=True))
+    session.add(item)
+    await session.commit()
+    await session.refresh(item)
+    return item
+
+
 # ---------------------------------------------------------------------------
 # Outros
 # ---------------------------------------------------------------------------
@@ -293,6 +353,18 @@ async def create_outro(session: SessionDep, api_key: ApiKeyDep, data: OutroCreat
         scraped_at=_now(),
         **data.model_dump(),
     )
+    session.add(item)
+    await session.commit()
+    await session.refresh(item)
+    return item
+
+
+@router.put("/outros/{item_id}")
+async def update_outro(session: SessionDep, api_key: ApiKeyDep, item_id: str, data: OutroUpdate) -> Any:
+    item = await session.get(Outro, item_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="Item não encontrado")
+    item.sqlmodel_update(data.model_dump(exclude_unset=True))
     session.add(item)
     await session.commit()
     await session.refresh(item)
