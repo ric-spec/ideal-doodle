@@ -1,8 +1,10 @@
 import uuid
 from datetime import datetime, timezone
+from typing import Any
 
 from pydantic import EmailStr
-from sqlalchemy import DateTime
+from sqlalchemy import ARRAY, Column, DateTime, Text
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import Field, SQLModel
 
 
@@ -85,3 +87,117 @@ class TokenPayload(SQLModel):
 class NewPassword(SQLModel):
     token: str
     new_password: str = Field(min_length=8, max_length=128)
+
+
+# ---------------------------------------------------------------------------
+# Scraped data — base comum (não é tabela)
+# ---------------------------------------------------------------------------
+
+class ScrapedItemBase(SQLModel):
+    portal_id: str = Field(index=True)
+    portal_name: str
+    portal_url: str
+    scraped_at: datetime = Field(sa_type=DateTime(timezone=True))  # type: ignore
+    raw: dict[str, Any] = Field(default_factory=dict, sa_type=JSONB)  # type: ignore
+
+
+# ---------------------------------------------------------------------------
+# Pedido
+# ---------------------------------------------------------------------------
+
+class Pedido(ScrapedItemBase, table=True):
+    id: str = Field(primary_key=True)
+    titulo: str | None = None
+    descricao: str | None = None
+    categoria: str | None = Field(default=None, index=True)
+    status: str | None = Field(default=None, index=True)
+    nome: str | None = None
+    contato: str | None = None
+    cidade: str | None = Field(default=None, index=True)
+    bairro: str | None = None
+    lat: float | None = None
+    lng: float | None = None
+
+
+# ---------------------------------------------------------------------------
+# Voluntario
+# ---------------------------------------------------------------------------
+
+class Voluntario(ScrapedItemBase, table=True):
+    id: str = Field(primary_key=True)
+    nome: str | None = None
+    descricao: str | None = None
+    categoria: str | None = Field(default=None, index=True)
+    contato: str | None = None
+    cidade: str | None = Field(default=None, index=True)
+    bairro: str | None = None
+    lat: float | None = None
+    lng: float | None = None
+
+
+# ---------------------------------------------------------------------------
+# PontoAjuda
+# ---------------------------------------------------------------------------
+
+class PontoAjuda(ScrapedItemBase, table=True):
+    __tablename__ = "ponto_ajuda"
+
+    id: str = Field(primary_key=True)
+    tipo: str | None = Field(default=None, index=True)
+    nome: str | None = None
+    descricao: str | None = None
+    endereco: str | None = None
+    cidade: str | None = Field(default=None, index=True)
+    bairro: str | None = None
+    lat: float | None = None
+    lng: float | None = None
+    contato: str | None = None
+    horario: str | None = None
+    itens: list[str] = Field(default_factory=list, sa_column=Column(ARRAY(Text), nullable=False))
+
+
+# ---------------------------------------------------------------------------
+# Pet
+# ---------------------------------------------------------------------------
+
+class Pet(ScrapedItemBase, table=True):
+    id: str = Field(primary_key=True)
+    tipo: str = Field(index=True)           # perdido | encontrado | adocao
+    nome: str | None = None
+    especie: str | None = Field(default=None, index=True)
+    porte: str | None = None
+    descricao: str | None = None
+    status: str | None = None
+    contato: str | None = None
+    cidade: str | None = Field(default=None, index=True)
+    bairro: str | None = None
+    imagem_url: str | None = None
+
+
+# ---------------------------------------------------------------------------
+# FeedItem
+# ---------------------------------------------------------------------------
+
+class FeedItem(ScrapedItemBase, table=True):
+    __tablename__ = "feed_item"
+
+    id: str = Field(primary_key=True)
+    tipo: str = Field(index=True)           # alerta | noticia | relatorio | interdicao | vistoria | transacao
+    titulo: str | None = None
+    descricao: str | None = None
+    url: str | None = None
+    data: str | None = None
+    urgente: bool = Field(default=False, index=True)
+
+
+# ---------------------------------------------------------------------------
+# Outro
+# ---------------------------------------------------------------------------
+
+class Outro(ScrapedItemBase, table=True):
+    id: str = Field(primary_key=True)
+    tipo: str = Field(index=True)           # contato_emergencia | link | pix | saldo | registro | formulario | vaquinha
+    titulo: str | None = None
+    descricao: str | None = None
+    url: str | None = None
+    contato: str | None = None
