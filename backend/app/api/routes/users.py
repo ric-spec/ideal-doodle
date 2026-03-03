@@ -17,12 +17,22 @@ from app.models import (
     User,
     UserCreate,
     UserPublic,
+    UserRegister,
     UsersPublic,
     UserUpdate,
     UserUpdateMe,
 )
 
 router = APIRouter(prefix="/users", tags=["users"])
+
+
+@router.post("/signup", response_model=UserPublic)
+async def register_user(session: SessionDep, user_in: UserRegister) -> Any:
+    user = await crud.get_user_by_email(session=session, email=user_in.email)
+    if user:
+        raise HTTPException(status_code=400, detail="Email já cadastrado")
+    user_create = UserCreate.model_validate(user_in)
+    return await crud.create_user(session=session, user_create=user_create)
 
 
 @router.get(

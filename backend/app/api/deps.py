@@ -1,17 +1,19 @@
+import hashlib
 from collections.abc import AsyncGenerator
 from typing import Annotated
 
 import jwt
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, Header, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jwt.exceptions import InvalidTokenError
 from pydantic import ValidationError
+from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core import security
 from app.core.config import settings
 from app.core.db import engine
-from app.models import TokenPayload, User
+from app.models import ApiKey, TokenPayload, User
 
 reusable_oauth2 = OAuth2PasswordBearer(
     tokenUrl=f"{settings.API_V1_STR}/login/access-token"
@@ -55,3 +57,21 @@ def get_current_active_superuser(current_user: CurrentUser) -> User:
             status_code=403, detail="The user doesn't have enough privileges"
         )
     return current_user
+
+
+async def get_api_key(
+    session: SessionDep,
+    x_api_key: str = Header(alias="X-API-Key"),
+) -> ApiKey:
+    key_hash = hashlib.sha256(x_api_key.encode()).hexdigest()
+    api_key = (
+        await session.exec(
+            select(ApiKey).where(ApiKey.key_hash == key_hash, ApiKey.is_active == True)  # noqa: E712
+        )
+    ).first()
+    if not api_key:
+        raise HTTPException(status_code=401, detail="API Key inválida ou inativa")
+    return api_key
+
+
+ApiKeyDep = Annotated[ApiKey, Depends(get_api_key)]

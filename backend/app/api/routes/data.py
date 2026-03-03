@@ -3,7 +3,7 @@ from typing import Any
 from fastapi import APIRouter, Query
 from sqlmodel import col, func, select
 
-from app.api.deps import SessionDep
+from app.api.deps import ApiKeyDep, SessionDep
 from app.models import FeedItem, Outro, Pedido, Pet, PontoAjuda, Voluntario
 
 router = APIRouter(tags=["data"])
@@ -24,6 +24,7 @@ def _list_response(data: list[Any], count: int) -> dict[str, Any]:
 @router.get("/pedidos")
 async def list_pedidos(
     session: SessionDep,
+    api_key: ApiKeyDep,
     skip: int = 0,
     limit: int = Query(default=100, le=500),
     portal_id: str | None = None,
@@ -53,6 +54,7 @@ async def list_pedidos(
 @router.get("/voluntarios")
 async def list_voluntarios(
     session: SessionDep,
+    api_key: ApiKeyDep,
     skip: int = 0,
     limit: int = Query(default=100, le=500),
     portal_id: str | None = None,
@@ -79,6 +81,7 @@ async def list_voluntarios(
 @router.get("/pontos")
 async def list_pontos(
     session: SessionDep,
+    api_key: ApiKeyDep,
     skip: int = 0,
     limit: int = Query(default=100, le=500),
     portal_id: str | None = None,
@@ -105,6 +108,7 @@ async def list_pontos(
 @router.get("/pets")
 async def list_pets(
     session: SessionDep,
+    api_key: ApiKeyDep,
     skip: int = 0,
     limit: int = Query(default=100, le=500),
     portal_id: str | None = None,
@@ -134,6 +138,7 @@ async def list_pets(
 @router.get("/feed")
 async def list_feed(
     session: SessionDep,
+    api_key: ApiKeyDep,
     skip: int = 0,
     limit: int = Query(default=100, le=500),
     portal_id: str | None = None,
@@ -160,6 +165,7 @@ async def list_feed(
 @router.get("/outros")
 async def list_outros(
     session: SessionDep,
+    api_key: ApiKeyDep,
     skip: int = 0,
     limit: int = Query(default=100, le=500),
     portal_id: str | None = None,

@@ -27,6 +27,12 @@ class UserCreate(UserBase):
     password: str = Field(min_length=8, max_length=128)
 
 
+class UserRegister(SQLModel):
+    email: EmailStr = Field(max_length=255)
+    password: str = Field(min_length=8, max_length=128)
+    full_name: str | None = Field(default=None, max_length=255)
+
+
 class UserUpdate(UserBase):
     email: EmailStr | None = Field(default=None, max_length=255)  # type: ignore
     password: str | None = Field(default=None, min_length=8, max_length=128)
@@ -190,3 +196,40 @@ class Outro(ScrapedItemBase, table=True):
     descricao: str | None = None
     url: str | None = None
     contato: str | None = None
+
+
+# ---------------------------------------------------------------------------
+# API Key
+# ---------------------------------------------------------------------------
+
+class ApiKey(SQLModel, table=True):
+    __tablename__ = "api_key"
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    name: str = Field(max_length=255)
+    description: str | None = None
+    prefix: str = Field(max_length=8, index=True)
+    key_hash: str = Field(unique=True)
+    created_at: datetime = Field(
+        default_factory=get_datetime_utc,
+        sa_type=DateTime(timezone=True),  # type: ignore
+    )
+    is_active: bool = Field(default=True, index=True)
+
+
+class ApiKeyCreate(SQLModel):
+    name: str = Field(max_length=255)
+    description: str | None = None
+
+
+class ApiKeyPublic(SQLModel):
+    id: uuid.UUID
+    name: str
+    description: str | None
+    prefix: str
+    created_at: datetime
+    is_active: bool
+
+
+class ApiKeyCreated(ApiKeyPublic):
+    key: str  # plain-text key, shown only once
