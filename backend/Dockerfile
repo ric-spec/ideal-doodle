@@ -1,7 +1,7 @@
 FROM python:3.12-slim
 WORKDIR /app
 RUN pip install uv
-COPY pyproject.toml uv.lock ./
+COPY pyproject.toml ./
 RUN uv sync --no-dev --no-install-project
 COPY app ./app
 COPY scripts ./scripts
